@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Veículos - Completo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .status-disponivel { color: green; font-weight: bold; }
+        .status-vendido { color: red; font-weight: bold; }
+    </style>
+</head>
+<body class="container mt-4">
+
+<h2 class="text-center mb-4">🚗 Sistema de Gestão de Veículos</h2>
+
+<div class="card p-3 mb-4">
+    <h5>🔍 Filtros de Busca</h5>
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input type="text" id="filtroMarca" class="form-control" placeholder="Filtrar por Marca...">
+        </div>
+        <div class="col-md-4">
+            <input type="text" id="filtroModelo" class="form-control" placeholder="Filtrar por Modelo...">
+        </div>
+        <div class="col-md-2">
+            <select id="filtroStatus" class="form-select">
+                <option value="">Todos Status</option>
+                <option value="DISPONIVEL">Disponível</option>
+                <option value="VENDIDO">Vendido</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button onclick="aplicarFiltros()" class="btn btn-info w-100 text-white">Filtrar</button>
+        </div>
+    </div>
+</div>
+
+<div class="card p-4 mb-4">
+    <h4>➕ Novo Cadastro</h4>
+    <form id="formVeiculo">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label>Marca</label>
+                <input type="text" id="marca" class="form-control" placeholder="Ex: Fiat" required>
+            </div>
+            <div class="col-md-3">
+                <label>Modelo</label>
+                <input type="text" id="modelo" class="form-control" placeholder="Ex: Uno" required>
+            </div>
+            <div class="col-md-2">
+                <label>Ano</label>
+                <input type="number" id="ano" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label>Cor</label>
+                <input type="text" id="cor" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label>Preço (R$)</label>
+                <input type="number" step="0.01" id="preco" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label>Km</label>
+                <input type="number" id="km" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label>Status</label>
+                <select id="status" class="form-select">
+                    <option value="DISPONIVEL">DISPONIVEL</option>
+                    <option value="VENDIDO">VENDIDO</option>
+                </select>
+            </div>
+            <div class="col-md-12 text-end">
+                <button type="submit" class="btn btn-primary">Cadastrar Veículo</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<h4>📋 Estoque Atual</h4>
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Marca/Modelo</th>
+            <th>Ano/Cor</th>
+            <th>Preço</th>
+            <th>Km</th>
+            <th>Status</th>
+            <th>Ações</th>
+        </tr>
+        </thead>
+        <tbody id="tabelaVeiculos">
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="modalEdicao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Veículo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="mb-2">
+                    <label>Preço</label>
+                    <input type="number" step="0.01" id="editPreco" class="form-control">
+                </div>
+                <div class="mb-2">
+                    <label>Quilometragem</label>
+                    <input type="number" id="editKm" class="form-control">
+                </div>
+                <div class="mb-2">
+                    <label>Status</label>
+                    <select id="editStatus" class="form-select">
+                        <option value="DISPONIVEL">DISPONIVEL</option>
+                        <option value="VENDIDO">VENDIDO</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>Marca/Modelo (Não editável)</label>
+                    <input type="text" id="editMarcaModelo" class="form-control" disabled>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="salvarEdicao()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API_URL = 'http://localhost:8080/veiculos';
+    let todosVeiculos = []; // Guarda a lista original para filtrar localmente
+
+    // 1. CARREGAR E LISTAR
+    async function carregarVeiculos() {
+        try {
+            const resposta = await fetch(API_URL);
+            todosVeiculos = await resposta.json();
+            console.log(todosVeiculos)
+            exibirTabela(todosVeiculos);
+        } catch (erro) {
+            console.error("Erro ao buscar veículos:", erro);
+        }
+    }
+
+    function exibirTabela(lista) {
+        const tabela = document.getElementById('tabelaVeiculos');
+        tabela.innerHTML = '';
+
+        if (lista.length === 0) {
+            tabela.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum veículo encontrado.</td></tr>';
+            return;
+        }
+
+        lista.forEach(carro => {
+            const classeStatus = carro.status === 'DISPONIVEL' ? 'status-disponivel' : 'status-vendido';
+
+            tabela.innerHTML += `
+                <tr>
+                    <td>${carro.id}</td>
+                    <td>${carro.marca} - ${carro.modelo}</td>
+                    <td>${carro.ano} / ${carro.cor}</td>
+                    <td>R$ ${carro.preco}</td>
+                    <td>${carro.quilometragem} km</td>
+                    <td class="${classeStatus}">${carro.status}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="abrirModalEdicao(${carro.id})">✏️ Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deletarVeiculo(${carro.id})">🗑️ Excluir</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // 2. CADASTRAR
+    document.getElementById('formVeiculo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const novoCarro = {
+            marca: document.getElementById('marca').value,
+            modelo: document.getElementById('modelo').value,
+            ano: document.getElementById('ano').value,
+            cor: document.getElementById('cor').value,
+            preco: document.getElementById('preco').value,
+            quilometragem: document.getElementById('km').value,
+            status: document.getElementById('status').value
+        };
+
+        await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(novoCarro)
+        });
+
+        e.target.reset();
+        carregarVeiculos();
+    });
+
+    // 3. DELETAR
+    async function deletarVeiculo(id) {
+        if(confirm("Tem certeza que deseja remover este veículo do estoque?")) {
+            await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            carregarVeiculos();
+        }
+    }
+
+    // 4. FILTRAR (Lógica no Frontend para simplificar)
+    function aplicarFiltros() {
+        const termoMarca = document.getElementById('filtroMarca').value.toLowerCase();
+        const termoModelo = document.getElementById('filtroModelo').value.toLowerCase();
+        const termoStatus = document.getElementById('filtroStatus').value;
+
+        const listaFiltrada = todosVeiculos.filter(carro => {
+            const matchMarca = carro.marca.toLowerCase().includes(termoMarca);
+            const matchModelo = carro.modelo.toLowerCase().includes(termoModelo);
+            const matchStatus = termoStatus === "" || carro.status === termoStatus;
+            return matchMarca && matchModelo && matchStatus;
+        });
+
+        exibirTabela(listaFiltrada);
+    }
+
+    // 5. PREPARAR EDIÇÃO (Abrir Modal)
+    let modalBootstrap; // Variável para controlar a janelinha
+    function abrirModalEdicao(id) {
+        const carro = todosVeiculos.find(v => v.id === id);
+        if (!carro) return;
+
+        // Preenche os campos do Modal
+        document.getElementById('editId').value = carro.id;
+        document.getElementById('editPreco').value = carro.preco;
+        document.getElementById('editKm').value = carro.quilometragem;
+        document.getElementById('editStatus').value = carro.status;
+        document.getElementById('editMarcaModelo').value = `${carro.marca} - ${carro.modelo}`;
+
+        // Abre o modal
+        modalBootstrap = new bootstrap.Modal(document.getElementById('modalEdicao'));
+        modalBootstrap.show();
+    }
+
+    // 6. SALVAR EDIÇÃO (PUT)
+    async function salvarEdicao() {
+        const id = document.getElementById('editId').value;
+        // Precisamos mandar o objeto completo ou parcial.
+        // Como nosso Controller Java pede o objeto, vamos montar com os dados que temos + editados
+
+        const carroOriginal = todosVeiculos.find(v => v.id == id);
+
+        const dadosAtualizados = {
+            modelo: carroOriginal.modelo, // Mantém o original
+            marca: carroOriginal.marca,   // Mantém o original
+            ano: carroOriginal.ano,       // Mantém o original
+            cor: carroOriginal.cor,       // Mantém o original
+            preco: document.getElementById('editPreco').value, // ATUALIZA
+            quilometragem: document.getElementById('editKm').value, // ATUALIZA
+            status: document.getElementById('editStatus').value // ATUALIZA
+        };
+
+        await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dadosAtualizados)
+        });
+
+        modalBootstrap.hide(); // Fecha a janelinha
+        carregarVeiculos(); // Recarrega a tabela
+    }
+
+    // Iniciar sistema
+    carregarVeiculos();
+</script>
+</body>
+</html>
